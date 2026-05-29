@@ -23,6 +23,21 @@ jobs:
         submodules: 'recursive'
         fetch-depth: 0
 
+    - name: Determine version
+      id: version
+      run: |
+        if [ -n "${{ inputs.version }}" ]; then
+          VERSION="${{ inputs.version }}"
+        else
+          VERSION="${GITHUB_REF#refs/tags/}"
+        fi
+        if ! echo "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "Error: Version must match format v*.*.*"
+          exit 1
+        fi
+        echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+        echo "VER=$(echo $VERSION | sed 's/v//')" >> $GITHUB_OUTPUT
+
     - name: set up JDK 17
       uses: actions/setup-java@v4
       with:
@@ -46,12 +61,12 @@ jobs:
     - name: Build with Gradle
       run: ./gradlew :ui:assembleRelease --stacktrace
 
-    - name: Get version from gradle.properties
-      id: version
-      run: |
-        VERSION_NAME=$(grep wireguardVersionName gradle.properties | cut -d'=' -f2)
-        echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
-        echo "Version: $VERSION_NAME"
+    #- name: Get version from gradle.properties
+    #  id: version
+    #  run: |
+    #    VERSION_NAME=$(grep wireguardVersionName gradle.properties | cut -d'=' -f2)
+    #    echo "version=$VERSION_NAME" >> $GITHUB_OUTPUT
+    #    echo "Version: $VERSION_NAME"
 
     - name: Generate release notes
       id: release_notes
@@ -96,6 +111,7 @@ jobs:
       id: create_release
       uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ steps.version.outputs.VERSION }}
         #files: ui/build/outputs/apk/release/wg-turn-v${{ steps.version.outputs.version }}.apk
         files: ${{ steps.sign_app.outputs.signedReleaseFile }}
         draft: false
