@@ -98,6 +98,20 @@ class TurnSettingsProxy : BaseObservable, Parcelable {
         }
 
     @get:Bindable
+    var useWrap: Boolean = false
+        set(value) {
+            field = value
+            notifyPropertyChanged(BR.useWrap)
+        }
+
+    @get:Bindable
+    var wrapKeyHex: String = ""
+        set(value) {
+            field = value
+            notifyPropertyChanged(BR.wrapKeyHex)
+        }
+
+    @get:Bindable
     var advancedExpanded: Boolean = false
         set(value) {
             field = value
@@ -117,6 +131,8 @@ class TurnSettingsProxy : BaseObservable, Parcelable {
         watchdogTimeout = parcel.readString() ?: ""
         peerType = parcel.readString() ?: "proxy_v2"
         streamsPerCred = parcel.readString() ?: ""
+        useWrap = parcel.readInt() != 0
+        wrapKeyHex = parcel.readString() ?: ""
         advancedExpanded = parcel.readInt() != 0
     }
 
@@ -136,6 +152,8 @@ class TurnSettingsProxy : BaseObservable, Parcelable {
             watchdogTimeout = if (other.watchdogTimeout > 0) other.watchdogTimeout.toString() else ""
             peerType = other.peerType
             streamsPerCred = other.streamsPerCred.toString()
+            useWrap = other.useWrap
+            wrapKeyHex = other.wrapKeyHex
         }
     }
 
@@ -154,6 +172,8 @@ class TurnSettingsProxy : BaseObservable, Parcelable {
         dest.writeString(watchdogTimeout)
         dest.writeString(peerType)
         dest.writeString(streamsPerCred)
+        dest.writeInt(if (useWrap) 1 else 0)
+        dest.writeString(wrapKeyHex)
         dest.writeInt(if (advancedExpanded) 1 else 0)
     }
 
@@ -185,6 +205,11 @@ class TurnSettingsProxy : BaseObservable, Parcelable {
             if (parsedStreamsPerCred !in 1..16) {
                 throw BadConfigException(BadConfigException.Section.INTERFACE, BadConfigException.Location.TOP_LEVEL, BadConfigException.Reason.INVALID_VALUE, streamsPerCred)
             }
+            if (useWrap) {
+                if (useUdp || peerType == "wireguard" || !wrapKeyHex.matches(Regex("^[0-9a-fA-F]{64}$"))) {
+                    throw BadConfigException(BadConfigException.Section.INTERFACE, BadConfigException.Location.TOP_LEVEL, BadConfigException.Reason.INVALID_VALUE, wrapKeyHex)
+                }
+            }
 
             if (peer.isBlank()) {
                 throw BadConfigException(BadConfigException.Section.PEER, BadConfigException.Location.ENDPOINT, BadConfigException.Reason.MISSING_ATTRIBUTE, peer)
@@ -210,6 +235,8 @@ class TurnSettingsProxy : BaseObservable, Parcelable {
             peerType = peerType,
             streamsPerCred = parsedStreamsPerCred,
             watchdogTimeout = parsedWatchdogTimeout,
+            useWrap = useWrap,
+            wrapKeyHex = wrapKeyHex.trim(),
         )
         if (enabled) {
             TurnSettings.validate(settings)

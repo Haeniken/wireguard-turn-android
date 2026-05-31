@@ -156,6 +156,8 @@ public final class TurnBackend {
      * @param peerType Peer type
      * @param streamsPerCred Number of streams sharing one TURN credential cache
      * @param watchdogTimeout DTLS watchdog timeout in seconds, 0 to disable
+     * @param useWrap Whether WRAP obfuscation is enabled
+     * @param wrapKeyHex 32-byte WRAP key encoded as 64 hex characters
      * @param networkHandle Android network handle for socket binding
      * @return 0 on success, -1 on generic failure, -9000 when VK reports that the call link expired
      */
@@ -171,6 +173,8 @@ public final class TurnBackend {
             String peerType,
             int streamsPerCred,
             int watchdogTimeout,
+            int useWrap,
+            String wrapKeyHex,
             long networkHandle
     );
     public static native void wgTurnProxyStop();
