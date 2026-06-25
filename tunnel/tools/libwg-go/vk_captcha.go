@@ -44,7 +44,6 @@ type VkCaptchaError struct {
 }
 
 func ParseVkCaptchaError(errData map[string]interface{}) *VkCaptchaError {
-	// Extract error_code
 	codeFloat, ok := errData["error_code"].(float64)
 	if !ok {
 		turnLog("missing error_code in captcha error data")
@@ -52,57 +51,40 @@ func ParseVkCaptchaError(errData map[string]interface{}) *VkCaptchaError {
 	}
 	code := int(codeFloat)
 
-	// Extract redirect_uri
-	RedirectURI, ok := errData["redirect_uri"].(string)
+	redirectURI, ok := errData["redirect_uri"].(string)
 	if !ok {
 		turnLog("missing redirect_uri in captcha error data")
 		return nil
 	}
 
-	// Extract captcha_sid
-	captchaSid, ok := errData["captcha_sid"].(string)
-	if !ok {
-		// try numeric
-		if sidNum, ok2 := errData["captcha_sid"].(float64); ok2 {
-			captchaSid = fmt.Sprintf("%.0f", sidNum)
-		} else {
-			turnLog("missing captcha_sid in captcha error data")
-			return nil
-		}
-	}
-
-	// Extract captcha_img
-	captchaImg, ok := errData["captcha_img"].(string)
-	if !ok {
-		turnLog("missing captcha_img in captcha error data")
-		return nil
-	}
-
-	// Extract error_msg
-	errorMsg, ok := errData["error_msg"].(string)
-	if !ok {
-		turnLog("missing error_msg in captcha error data")
-		return nil
-	}
-
-	// Extract session token if redirect_uri present
 	var sessionToken string
-	if RedirectURI != "" {
-		if parsed, err := neturl.Parse(RedirectURI); err == nil {
-			sessionToken = parsed.Query().Get("session_token")
-		} else {
-			turnLog("failed to parse redirect_uri: %v", err)
-			return nil
-		}
+	if parsed, err := neturl.Parse(redirectURI); err == nil {
+		sessionToken = parsed.Query().Get("session_token")
+	} else {
+		turnLog("failed to parse redirect_uri: %v", err)
+		return nil
 	}
 
-	// Extract is_sound_captcha_available
+	if code == 14 && sessionToken == "" {
+		turnLog("missing session_token in captcha redirect_uri")
+		return nil
+	}
+
+	var captchaSid string
+	if sid, ok := errData["captcha_sid"].(string); ok {
+		captchaSid = sid
+	} else if sidNum, ok := errData["captcha_sid"].(float64); ok {
+		captchaSid = fmt.Sprintf("%.0f", sidNum)
+	}
+
+	captchaImg, _ := errData["captcha_img"].(string)
+	errorMsg, _ := errData["error_msg"].(string)
+
 	isSound, ok := errData["is_sound_captcha_available"].(bool)
 	if !ok {
 		isSound = false
 	}
 
-	// Extract captcha_ts
 	var captchaTs string
 	if tsFloat, ok := errData["captcha_ts"].(float64); ok {
 		captchaTs = fmt.Sprintf("%.0f", tsFloat)
@@ -110,7 +92,6 @@ func ParseVkCaptchaError(errData map[string]interface{}) *VkCaptchaError {
 		captchaTs = tsStr
 	}
 
-	// Extract captcha_attempt
 	var captchaAttempt string
 	if attFloat, ok := errData["captcha_attempt"].(float64); ok {
 		captchaAttempt = fmt.Sprintf("%.0f", attFloat)
@@ -118,13 +99,12 @@ func ParseVkCaptchaError(errData map[string]interface{}) *VkCaptchaError {
 		captchaAttempt = attStr
 	}
 
-	// Build VkCaptchaError
 	return &VkCaptchaError{
 		ErrorCode:               code,
 		ErrorMsg:                errorMsg,
 		CaptchaSid:              captchaSid,
 		CaptchaImg:              captchaImg,
-		RedirectURI:             RedirectURI,
+		RedirectURI:             redirectURI,
 		IsSoundCaptchaAvailable: isSound,
 		SessionToken:            sessionToken,
 		CaptchaTs:               captchaTs,
